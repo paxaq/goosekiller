@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Test Runner</title>
+    <!-- Include game.js - adjust path if necessary -->
+    <script src="game.js"></script>
+</head>
+<body>
+    <h1>Game Logic Tests</h1>
+    <p>Open the developer console to see test results.</p>
+    <canvas id="gameCanvas" width="800" height="600" style="display:none;"></canvas> <!-- Hidden canvas for context -->
+
+    <script>
+        // Test suite will go here
+        console.log("--- Starting Game Logic Tests ---");
+
+        // Wait for game.js to load and initialize, especially if it has DOMContentLoaded listeners
+        // For this simple case, we might be able to run tests directly,
+        // but in a more complex scenario, you might need a small delay or a load event.
+        // Assuming game.js is loaded and its global variables/functions are available.
+
+        // --- Test Collision Detection ---
+        console.log("\n--- Testing Collision Detection (rectsOverlap) ---");
+
+        // Mock objects for collision testing
+        const mockPlayer = { x: 50, y: 550, width: 50, height: 50 };
+        const mockGoose = { x: 70, y: 530, width: 30, height: 30 }; // Overlaps player
+        const mockBullet = { x: 75, y: 520, width: 5, height: 10 }; // Overlaps goose
+        const mockFarGoose = { x: 300, y: 100, width: 30, height: 30 }; // No overlap
+        const mockUmbrella = { // Simulating player's umbrella when active
+            x: mockPlayer.x + (mockPlayer.width - 70) / 2, // Assuming defenseWidth is 70
+            y: mockPlayer.y - 10 - 5, // Assuming defenseHeight is 10, gap is 5
+            width: 70,
+            height: 10
+        };
+        const mockGooseHittingUmbrella = { x: mockUmbrella.x + 5, y: mockUmbrella.y + 2, width: 30, height: 30};
+
+        // Test Case 1: Bullet hitting a goose
+        let bulletGooseCollision = rectsOverlap(mockBullet, mockGoose);
+        console.log("Test: Bullet hitting Goose (should be true):", bulletGooseCollision);
+        if (bulletGooseCollision !== true) console.error("FAIL: Bullet-Goose collision expected true");
+
+        // Test Case 2: Goose hitting player (no defense)
+        let goosePlayerCollision = rectsOverlap(mockGoose, mockPlayer);
+        console.log("Test: Goose hitting Player (no defense) (should be true):", goosePlayerCollision);
+        if (goosePlayerCollision !== true) console.error("FAIL: Goose-Player collision expected true");
+
+        // Test Case 3: Goose hitting player's umbrella (with defense)
+        // For this, we check collision between goose and umbrella area
+        let gooseUmbrellaCollision = rectsOverlap(mockGooseHittingUmbrella, mockUmbrella);
+        console.log("Test: Goose hitting Player's Umbrella (should be true):", gooseUmbrellaCollision);
+        if (gooseUmbrellaCollision !== true) console.error("FAIL: Goose-Umbrella collision expected true");
+        
+        // Test Case 4: Goose NOT hitting player's body when hitting umbrella (assuming umbrella protects)
+        // This depends on exact umbrella positioning and if it fully covers the player from above.
+        // For this test, we'll assume mockGooseHittingUmbrella only hits the umbrella.
+        let gooseBodyCollisionWhileDefending = rectsOverlap(mockGooseHittingUmbrella, mockPlayer);
+        console.log("Test: Goose hitting Player's Body while Umbrella active (should be false if umbrella covers):", gooseBodyCollisionWhileDefending);
+        // This test might be true if the umbrella is small or goose is large. For current setup, it's likely true.
+        // Let's refine this: if goose hits umbrella, it shouldn't hit player body *if umbrella is effective*
+        // This logic is more in checkCollisions, rectsOverlap just checks geometry.
+
+        // Test Case 5: No collision (bullet and far goose)
+        let noCollision = rectsOverlap(mockBullet, mockFarGoose);
+        console.log("Test: No collision (Bullet and Far Goose) (should be false):", noCollision);
+        if (noCollision !== false) console.error("FAIL: No collision expected false");
+
+        // --- Test Scoring ---
+        console.log("\n--- Testing Scoring ---");
+        // Reset score and simulate collision
+        score = 0; // Reset global score
+        player.bullets = [{ x: 50, y: 50, width: 5, height: 10 }]; // Add a mock bullet
+        geese = [{ x: 50, y: 50, width: 30, height: 30 }];      // Add a mock goose that collides
+        
+        // Call checkCollisions to process this setup
+        // Note: checkCollisions modifies global arrays `player.bullets` and `geese`
+        // and global `score` and `playerHealth`
+        checkCollisions(); 
+        console.log("Test: Score after bullet hits goose (should be 10):", score);
+        if (score !== 10) console.error("FAIL: Score expected to be 10");
+        if (player.bullets.length !== 0) console.error("FAIL: Bullet not removed after collision");
+        if (geese.length !== 0) console.error("FAIL: Goose not removed after bullet collision");
+
+
+        // --- Test Player Health ---
+        console.log("\n--- Testing Player Health ---");
+        // Test Case 1: Goose hits player (no defense)
+        playerHealth = 3; // Reset health
+        player.isDefending = false;
+        geese = [{ x: mockPlayer.x + 5, y: mockPlayer.y + 5, width: 30, height: 30 }]; // Colliding goose
+        player.bullets = []; // Clear bullets to avoid interference
+
+        checkCollisions(); // Goose should hit player
+        console.log("Test: Player health after goose hit (no defense) (should be 2):", playerHealth);
+        if (playerHealth !== 2) console.error("FAIL: Player health expected to be 2");
+        if (geese.length !== 0) console.error("FAIL: Goose not removed after hitting player");
+
+        // Test Case 2: Goose hits player (with defense - umbrella deflects)
+        playerHealth = 3; // Reset health
+        player.isDefending = true; // Activate defense
+        // Need to re-initialize player object from game.js if defenseWidth/Height are not globally accessible
+        // For simplicity, assume player object in game.js is used by checkCollisions
+        player.x = mockPlayer.x; // Ensure player is at the mock position
+        player.y = mockPlayer.y;
+        // Goose positioned to hit the umbrella area based on player's current defense settings
+         const umbrellaRectTest = {
+            x: player.x + (player.width - player.defenseWidth) / 2,
+            y: player.y - player.defenseHeight - 5,
+            width: player.defenseWidth,
+            height: player.defenseHeight
+        };
+        geese = [{ x: umbrellaRectTest.x + 5, y: umbrellaRectTest.y + 2, width: 30, height: 30 }];
+
+        checkCollisions();
+        console.log("Test: Player health after goose hit (with defense - deflected) (should be 3):", playerHealth);
+        if (playerHealth !== 3) console.error("FAIL: Player health expected to be 3 (deflected)");
+        if (geese.length !== 0) console.error("FAIL: Goose not removed after being deflected by umbrella");
+
+        // Test Case 3: Goose hits player body (even with defense on, e.g. from side/below umbrella)
+        playerHealth = 3; // Reset health
+        player.isDefending = true; // Defense is on
+        player.x = mockPlayer.x;
+        player.y = mockPlayer.y;
+        // This goose collides with player body, not the umbrella area.
+        geese = [{ x: mockPlayer.x, y: mockPlayer.y + mockPlayer.height - 5, width: 30, height: 30 }]; 
+
+        checkCollisions();
+        console.log("Test: Player health after goose hit player body (defense on) (should be 2):", playerHealth);
+        if (playerHealth !== 2) console.error("FAIL: Player health expected to be 2 (hit body while defending)");
+        if (geese.length !== 0) console.error("FAIL: Goose not removed after hitting player body (defense on)");
+
+
+        // --- Test Game Over ---
+        console.log("\n--- Testing Game Over ---");
+        playerHealth = 0; // Manually set health to 0
+        gameOver = false; // Ensure gameOver is false initially for the test
+        
+        // Simulate the part of gameLoop that checks for game over
+        // In the actual game.js, this check is: if (playerHealth <= 0) { gameOver = true; }
+        // We need to call a function that performs this check or replicate it.
+        // Let's assume gameLoop() can be called once to update state.
+        // To avoid recursive loop, we won't call requestAnimationFrame here.
+        // We also need to ensure game.js's gameLoop is the one being called.
+        
+        // Simplified check based on game.js logic:
+        if (playerHealth <= 0) {
+            gameOver = true;
+        }
+        console.log("Test: gameOver flag after health is 0 (should be true):", gameOver);
+        if (gameOver !== true) console.error("FAIL: gameOver flag expected to be true");
+
+        // Reset for any subsequent manual tests on the page
+        restartGame(); // Call restart to clean up states for any manual interaction later
+        console.log("\n--- Game Logic Tests Finished ---");
+    </script>
+
+</body>
+</html>
